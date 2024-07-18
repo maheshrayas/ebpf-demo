@@ -1,0 +1,3 @@
+{
+  "rust-analyzer.linkedProjects": ["Cargo.toml", "xentra-syscall-ebpf/Cargo.toml"]
+}
