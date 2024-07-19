@@ -2,9 +2,10 @@
 
 ## 1. Introduction to eBPF
 - **What is eBPF?**
-  - Definition and history
-  - Comparison with traditional BPF
-  - Use cases and applications
+  - eBPF is a revolutionary technology with origins in the Linux kernel that can run sandboxed programs in a privileged context such as the operating system kernel. It is used to safely and   
+    efficiently extend the capabilities of the kernel without requiring to change kernel source code or load kernel modules.
+  - ![ebpf](../docs/ebpf.webp)
+  
 - **Why eBPF?**
   - Advantages and unique features
   - Performance benefits
