@@ -5,7 +5,7 @@
   - eBPF is a revolutionary technology with origins in the Linux kernel that can run sandboxed programs in a privileged context such as the operating system kernel. It is used to safely and   
     efficiently extend the capabilities of the kernel without requiring to change kernel source code or load kernel modules.
   - Use case & Architecture
-  
+
   - ![ebpf](./images/ebpf.png)
   
 - **Why eBPF?**
@@ -22,9 +22,16 @@
   - Compiling and loading eBPF programs
   - Attaching eBPF programs to hooks
   - Verifying eBPF programs (BPF verifier)
+  ![Lifecycle](./images/lifecycle.png)
+
 - **Execution Environment**
   - Kernel space vs user space
   - Interaction with the Linux kernel
+   ![Maps](./images/map.png)
+
+- **Safety**
+  - CAP_BPF
+
 
 ## 3. eBPF Program Types
 - **XDP (eXpress Data Path)**
