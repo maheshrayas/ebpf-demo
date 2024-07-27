@@ -4,9 +4,9 @@
 use core::{mem, slice};
 
 use aya_ebpf::{
-    bindings::xdp_action,
+    bindings::{ xdp_action},
     cty::c_long,
-    helpers::{bpf_get_current_task, bpf_probe_read_kernel, gen::bpf_get_current_pid_tgid},
+    helpers::{bpf_get_current_cgroup_id, bpf_get_current_task, bpf_probe_read_kernel, gen::bpf_get_current_pid_tgid},
     macros::{map, raw_tracepoint, tracepoint, xdp},
     maps::{HashMap, PerfEventArray},
     programs::{RawTracePointContext, TracePointContext, XdpContext},
@@ -14,6 +14,7 @@ use aya_ebpf::{
 };
 use aya_log_ebpf::{debug, info};
 
+use bindings::{css_set, kernfs_node, ns_common, nsproxy, pid_namespace, task_struct};
 use network_types::{
     eth::{EthHdr, EtherType},
     ip::{IpProto, Ipv4Hdr, Ipv6Hdr},
@@ -83,15 +84,33 @@ pub fn sched_process_fork(ctx: TracePointContext) -> u32 {
 fn try_sched_process_fork(ctx: TracePointContext) -> Result<u32, u32> {
     let child_pid: u32 = unsafe { ctx.read_at(44).map_err(|_| 100u32)? };
     let parent_pid: u32 = unsafe { ctx.read_at(24).map_err(|_| 100u32)? };
-    
-        unsafe {
-            PROCESS_TREE.insert(&child_pid, &parent_pid,0).map_err(|_|100u32)?;
-        };
-    
-
+    info!(&ctx, "PROCESS FORK -> pid {}, parent id {}",child_pid, parent_pid);
+    unsafe {
+        PROCESS_TREE.insert(&child_pid, &parent_pid,0).map_err(|_|100u32)?;
+    };
     Ok(0)
 }
 
+#[tracepoint]
+pub fn sched_process_exec(ctx: TracePointContext) -> u32 {
+    match try_sched_process_exec(ctx) {
+        Ok(ret) => ret,
+        Err(_) => 1,
+    }
+}
+
+
+pub fn try_sched_process_exec(ctx: TracePointContext) ->  Result<u32, u32>  {
+    let old_pid: u32 = unsafe { ctx.read_at(16).map_err(|_| 100u32)? };
+    let new_pid: u32 = unsafe { ctx.read_at(12).map_err(|_| 100u32)?};
+    info!(&ctx, "PROCESS EXEC -> pid {}, old id {}",new_pid, old_pid);
+
+    unsafe {
+        PROCESS_TREE.insert(&old_pid, &new_pid, 0);
+    }
+
+    Ok(0)
+}
 
 #[raw_tracepoint]
 pub fn try_raw_tracepoint(ctx: RawTracePointContext) -> u32 {
@@ -101,9 +120,58 @@ pub fn try_raw_tracepoint(ctx: RawTracePointContext) -> u32 {
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(non_camel_case_types)]
+#[allow(unused)]
+mod bindings;
+type TaskStructPtr = *mut task_struct;
+
+// #[repr(C)]
+// #[derive(Debug, Copy, Clone)]
+// pub struct TaskStruct {
+//     pub cgroups: *mut CgroupSubs,
+// }
+
+// #[repr(C)]
+// #[derive(Debug, Copy, Clone)]
+// pub struct CgroupSubs {
+//     pub subsys: [*mut cgroup_subsys_state; 14usize]
+// }
+
+// #[repr(C)]
+// #[derive(Debug, Copy, Clone)]
+// pub struct cgroup_subsys_state {
+//     pub cgroup: *mut Cgroup,
+// }
+
+// #[repr(C)]
+// pub struct Cgroup {
+//     pub kn: *mut KernfsNode,
+// }
+
+// #[repr(C)]
+// pub struct KernfsNode {
+//     pub id: u64,
+// }
+
+// unsafe fn get_cgroup_id(task: TaskStructPtr) -> Result<u64, i64> {
+//     let cgroup_subs: *mut css_set =  bpf_probe_read_kernel(&(*task).cgroups)?;
+//     let cgroup_sub_sys_state:*mut bindings::cgroup_subsys_state =   bpf_probe_read_kernel(&(*cgroup_subs).subsys[0])?;
+//     let cgroup: *mut bindings::cgroup = bpf_probe_read_kernel(&(*cgroup_sub_sys_state).cgroup)?;
+//     let kern_fs_node: *mut kernfs_node = bpf_probe_read_kernel(&(*cgroup).kn)?;
+//     let id =  bpf_probe_read_kernel(&(*kern_fs_node).id)?;
+//     Ok(id)
+// }
+
+unsafe fn get_ns_proxy(task: TaskStructPtr) -> Result<u32, i64> {
+    let nsproxy: *mut nsproxy =  bpf_probe_read_kernel(&(*task).nsproxy)?;
+    let net_ns: *mut pid_namespace =  bpf_probe_read_kernel(&(*nsproxy).pid_ns_for_children)?;
+    let nsc: ns_common = bpf_probe_read_kernel(&(*net_ns).ns)?;
+    let ns: u32 = nsc.inum;
+    Ok(ns)
+}
+
 unsafe fn try_tracepoint_syscalls(ctx: RawTracePointContext) -> Result<u32, u32> {
-  
- 
     let pid = ctx.pid();
 
     // //if  let Some(value) = PID_MAP.get(&pid) {
@@ -111,27 +179,45 @@ unsafe fn try_tracepoint_syscalls(ctx: RawTracePointContext) -> Result<u32, u32>
         let syscall = args[1] as u64;
         let syscall_nbr = syscall as u32;
 
-        let mut current_pid = pid;
-        let mut stack: [u32; 10] = [0; 10];  // Limit the depth to 10 to avoid loops
-        let mut index = 0;
+        // let mut current_pid: u32 = pid as u32;
+        // let mut stack: [u32; 10] = [0; 10];  // Limit the depth to 10 to avoid loops
+        // let mut index = 0;
     
-        while index < 10 {
-            if let Some(parent_pid) = PROCESS_TREE.get(&current_pid) {
-                stack[index] = current_pid;
-                current_pid = *parent_pid;
-                index += 1;
-            } else {
-                break;
-            }
+        // while index < 10 {
+        //     if let Some(parent_pid) = PROCESS_TREE.get(&current_pid) {
+        //         stack[index] = *parent_pid   ;
+        //         current_pid = *parent_pid;
+        //         index += 1;
+
+        //     } else {
+        //         break;
+        //     }
+        // }
+        // let root_pid = if index > 0 { stack[index-1] as u32 } else { 0 as u32 };
+
+       
+       
+      
+        if !pid.eq(&0){
+            let task: TaskStructPtr = bpf_get_current_task() as TaskStructPtr;
+   
+            let cgrp = match get_ns_proxy(task){
+                Ok(i)=> i,
+                Err(e)=> {
+                    info!(&ctx, "Something went wrong {}", e);
+                    return Ok(1);
+                }
+            };
+            let log_entry: SysCallLog = SysCallLog {
+                pid: pid,
+                syscall_nbr,
+                cgroup_id: cgrp,
+            };
+    
+           SYS_CALL_EVENTS.output(&ctx, &log_entry, 0);
+        //
         }
-    
-        let root_pid = if index > 0 { stack[index-1] as u32 } else { 0 as u32 };
-        let log_entry: SysCallLog = SysCallLog {
-            pid: root_pid,
-            syscall_nbr,
-        };
-        SYS_CALL_EVENTS.output(&ctx, &log_entry, 0);
-    Ok(0)
+        Ok(0)
 }
 
 fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {

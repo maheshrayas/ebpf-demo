@@ -20,6 +20,7 @@ pub struct NetworkTraceLogs {
 pub struct SysCallLog {
     pub pid: u32,
     pub syscall_nbr: u32,
+    pub cgroup_id: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
