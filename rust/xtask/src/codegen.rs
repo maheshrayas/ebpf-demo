@@ -7,9 +7,9 @@ use std::{
 
 pub fn generate() -> Result<(), anyhow::Error> {
     let dir = PathBuf::from("ebpf-demo-ebpf/src");
-    let names: Vec<&str> = vec!["sk_buff", "ipv6hdr", "udphdr", "tcphdr"];
+    let names: Vec<&str> = vec!["task_struct"];
     let bindings = aya_tool::generate(
-        InputFile::Btf(PathBuf::from("/sys/kernel/btf/vmlinux")),
+        InputFile::Btf(PathBuf::from("./ebpf-demo-ebpf/linux/5.15/vmlinux")),
         &names,
         &[],
     )?;

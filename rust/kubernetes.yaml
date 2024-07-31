@@ -64,7 +64,7 @@ spec:
       hostNetwork: true
       containers:
       - name: xentra-syscall
-        image: "maheshrayas/ebpf-syscalls:v0.8.82"
+        image: "maheshrayas/ebpf-syscalls:v0.8.52"
         args:
           - "--iface=vethdb06bf77"
         securityContext:

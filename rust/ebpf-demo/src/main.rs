@@ -164,7 +164,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     let data = unsafe { ptr.as_ptr().read_unaligned() };
 
                     if data.pid > 0 {
-                        println!("id {} , cgroup id {}, sysnbr {}",data.pid, data.cgroup_id,data.syscall_nbr );
+                        println!("id {} , cgroup id {}, sysnbr {}",data.pid, data.inum,data.syscall_nbr );
                         println!("--------------------------------------------" )
                         
                     }
