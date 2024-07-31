@@ -1,6 +1,6 @@
 # ebpf demo
 
-## Prerequites
+## prerequisite
 
 Rust
 KinD
