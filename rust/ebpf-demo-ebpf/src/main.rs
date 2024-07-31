@@ -126,42 +126,6 @@ pub fn try_raw_tracepoint(ctx: RawTracePointContext) -> u32 {
 mod bindings;
 type TaskStructPtr = *mut task_struct;
 
-// #[repr(C)]
-// #[derive(Debug, Copy, Clone)]
-// pub struct TaskStruct {
-//     pub cgroups: *mut CgroupSubs,
-// }
-
-// #[repr(C)]
-// #[derive(Debug, Copy, Clone)]
-// pub struct CgroupSubs {
-//     pub subsys: [*mut cgroup_subsys_state; 14usize]
-// }
-
-// #[repr(C)]
-// #[derive(Debug, Copy, Clone)]
-// pub struct cgroup_subsys_state {
-//     pub cgroup: *mut Cgroup,
-// }
-
-// #[repr(C)]
-// pub struct Cgroup {
-//     pub kn: *mut KernfsNode,
-// }
-
-// #[repr(C)]
-// pub struct KernfsNode {
-//     pub id: u64,
-// }
-
-// unsafe fn get_cgroup_id(task: TaskStructPtr) -> Result<u64, i64> {
-//     let cgroup_subs: *mut css_set =  bpf_probe_read_kernel(&(*task).cgroups)?;
-//     let cgroup_sub_sys_state:*mut bindings::cgroup_subsys_state =   bpf_probe_read_kernel(&(*cgroup_subs).subsys[0])?;
-//     let cgroup: *mut bindings::cgroup = bpf_probe_read_kernel(&(*cgroup_sub_sys_state).cgroup)?;
-//     let kern_fs_node: *mut kernfs_node = bpf_probe_read_kernel(&(*cgroup).kn)?;
-//     let id =  bpf_probe_read_kernel(&(*kern_fs_node).id)?;
-//     Ok(id)
-// }
 
 unsafe fn get_ns_proxy(task: TaskStructPtr) -> Result<u32, i64> {
     let nsproxy: *mut nsproxy =  bpf_probe_read_kernel(&(*task).nsproxy)?;
@@ -174,34 +138,14 @@ unsafe fn get_ns_proxy(task: TaskStructPtr) -> Result<u32, i64> {
 unsafe fn try_tracepoint_syscalls(ctx: RawTracePointContext) -> Result<u32, u32> {
     let pid = ctx.pid();
 
-    // //if  let Some(value) = PID_MAP.get(&pid) {
         let args = unsafe { slice::from_raw_parts(ctx.as_ptr() as *const usize, 2) };
         let syscall = args[1] as u64;
         let syscall_nbr = syscall as u32;
-
-        // let mut current_pid: u32 = pid as u32;
-        // let mut stack: [u32; 10] = [0; 10];  // Limit the depth to 10 to avoid loops
-        // let mut index = 0;
-    
-        // while index < 10 {
-        //     if let Some(parent_pid) = PROCESS_TREE.get(&current_pid) {
-        //         stack[index] = *parent_pid   ;
-        //         current_pid = *parent_pid;
-        //         index += 1;
-
-        //     } else {
-        //         break;
-        //     }
-        // }
-        // let root_pid = if index > 0 { stack[index-1] as u32 } else { 0 as u32 };
-
-       
-       
       
         if !pid.eq(&0){
             let task: TaskStructPtr = bpf_get_current_task() as TaskStructPtr;
    
-            let cgrp = match get_ns_proxy(task){
+            let inum = match get_ns_proxy(task){
                 Ok(i)=> i,
                 Err(e)=> {
                     info!(&ctx, "Something went wrong {}", e);
@@ -211,7 +155,7 @@ unsafe fn try_tracepoint_syscalls(ctx: RawTracePointContext) -> Result<u32, u32>
             let log_entry: SysCallLog = SysCallLog {
                 pid: pid,
                 syscall_nbr,
-                cgroup_id: cgrp,
+                inum: inum,
             };
     
            SYS_CALL_EVENTS.output(&ctx, &log_entry, 0);
