@@ -16,7 +16,7 @@ struct data_t {
     __u64 inum;
 };
 
-SEC("tracepoint/net/netif_receive_skb")
+SEC("tracepoint/raw_syscalls/sys_enter")
 int trace_execve(struct trace_event_raw_sys_enter *ctx) {
     struct data_t data = {};
     struct task_struct *task;
