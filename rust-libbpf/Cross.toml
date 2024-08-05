@@ -1,0 +1,4 @@
+[target.x86_64-unknown-linux-gnu.dockerfile]
+file = "./cross.Dockerfile"        
+context = "."                
+build-args = { ARCH = "x86_64-unknown-linux-gnu", DPKG_ARCH = "amd64" }
