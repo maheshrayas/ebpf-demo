@@ -14,6 +14,7 @@ struct {
 struct data_t {
     __u32 pid;
     __u64 inum;
+    __u64 sysnbr;
 };
 
 SEC("tracepoint/raw_syscalls/sys_enter")
@@ -24,10 +25,13 @@ int trace_execve(struct trace_event_raw_sys_enter *ctx) {
   
     task = (struct task_struct *)bpf_get_current_task();
     __u64 pid_ns = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    data.inum = pid_ns;
 
+if (pid_ns == 4026533546 ) {
+    data.sysnbr = ctx->id;
+    data.inum = pid_ns;
     // For perf event array:
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &data, sizeof(data));
+}
 
     return 0;
 }

@@ -64,7 +64,7 @@ spec:
       hostNetwork: true
       containers:
       - name: xentra-syscall
-        image: "maheshrayas/ebpf-libbpf-syscalls:v0.1.3"
+        image: "maheshrayas/ebpf-libbpf-syscalls:v0.1.12"
         securityContext:
           # allowPrivilegeEscalation: t
           privileged: true

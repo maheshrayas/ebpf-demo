@@ -96,9 +96,9 @@ loop {
 struct Data {
     pid: u32,
     inum: u64,
+    sysnbr: u64,
 }
 
 fn handle_event(data: &Data) {
-
-    println!("PID: {} Inum: {}", data.pid, data.inum);
+    println!("PID: {} Inum: {} Sysnbr: {}", data.pid, data.inum, data.sysnbr);
 }
